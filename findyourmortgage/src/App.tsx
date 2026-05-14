@@ -1,199 +1,456 @@
 import { useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
 import heroImg from './assets/hero.png'
 import './App.css'
 
-type LoanPurpose = 'buy' | 'remortgage'
+type LoanPurpose = 'buyer' | 'remortgage'
+type BuyerType = 'first-time-buyer' | 'home-mover' | 'additional-property'
+type EmploymentType = 'employed' | 'self-employed'
+type View = 'intro' | 'questionnaire' | 'availability'
 
-const rates = [
-  { lender: 'Halifax', rate: '4.42%', fee: '999 GBP', monthly: '1,226 GBP' },
-  { lender: 'Santander', rate: '4.49%', fee: '0 GBP', monthly: '1,241 GBP' },
-  { lender: 'Nationwide', rate: '4.58%', fee: '499 GBP', monthly: '1,258 GBP' },
+type MortgageApplication = {
+  id: string
+  createdAt: string
+  consent: {
+    dataStorageAccepted: boolean
+    acceptedAt: string
+    version: string
+  }
+  mortgage: {
+    purpose: LoanPurpose
+    buyerType?: BuyerType
+    propertyValue?: number
+    deposit?: number
+    borrowingNeed?: number
+    houseWorth?: number
+    mortgageBalance?: number
+    estimatedEquity?: number
+  }
+  applicant: {
+    householdIncome: number
+    employmentType: EmploymentType
+    dateOfBirth: string
+  }
+  advisor: {
+    wantsToSpeak: true
+    selectedSlot?: string
+  }
+}
+
+const SESSION_STORAGE_KEY = '1989-mortgages-application'
+const CONSENT_VERSION = 'data-storage-consent-v1'
+
+const availabilitySlots = [
+  { day: 'Today', date: '14 May', times: ['15:00', '16:30', '18:00'] },
+  { day: 'Tomorrow', date: '15 May', times: ['09:30', '12:00', '17:30'] },
+  { day: 'Saturday', date: '16 May', times: ['10:00', '11:30', '13:00'] },
 ]
 
-const steps = ['Property', 'Deposit', 'Situation', 'Results']
+function createApplicationId() {
+  if (crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+
+  return `application-${Date.now()}`
+}
+
+function saveApplicationToSession(application: MortgageApplication) {
+  sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(application))
+}
 
 function App() {
-  const [purpose, setPurpose] = useState<LoanPurpose>('buy')
-  const [propertyValue, setPropertyValue] = useState(375000)
-  const [deposit, setDeposit] = useState(75000)
+  const [view, setView] = useState<View>('intro')
+  const [loanPurpose, setLoanPurpose] = useState<LoanPurpose>('buyer')
+  const [buyerType, setBuyerType] = useState<BuyerType>('first-time-buyer')
+  const [propertyValue, setPropertyValue] = useState(350000)
+  const [deposit, setDeposit] = useState(50000)
+  const [houseWorth, setHouseWorth] = useState(375000)
+  const [mortgageBalance, setMortgageBalance] = useState(240000)
+  const [householdIncome, setHouseholdIncome] = useState(65000)
+  const [employmentType, setEmploymentType] = useState<EmploymentType>('employed')
+  const [dateOfBirth, setDateOfBirth] = useState('')
+  const [hasAcceptedDataTerms, setHasAcceptedDataTerms] = useState(false)
+  const [selectedSlot, setSelectedSlot] = useState('15 May 12:00')
 
-  const loanAmount = Math.max(propertyValue - deposit, 0)
-  const ltv = useMemo(() => {
-    if (!propertyValue) return 0
-    return Math.round((loanAmount / propertyValue) * 100)
-  }, [loanAmount, propertyValue])
+  const borrowingNeed = Math.max(propertyValue - deposit, 0)
+  const remortgageEquity = Math.max(houseWorth - mortgageBalance, 0)
+
+  const borrowingSummary = useMemo(() => {
+    if (loanPurpose === 'remortgage') {
+      return {
+        label: 'Estimated equity',
+        value: remortgageEquity,
+        detail: 'Based on your estimated property value and current balance.',
+      }
+    }
+
+    return {
+      label: 'Estimated borrowing need',
+      value: borrowingNeed,
+      detail: 'Based on the property price less your deposit.',
+    }
+  }, [borrowingNeed, loanPurpose, remortgageEquity])
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!hasAcceptedDataTerms) {
+      return
+    }
+
+    const acceptedAt = new Date().toISOString()
+    const application: MortgageApplication = {
+      id: createApplicationId(),
+      createdAt: acceptedAt,
+      consent: {
+        dataStorageAccepted: hasAcceptedDataTerms,
+        acceptedAt,
+        version: CONSENT_VERSION,
+      },
+      mortgage:
+        loanPurpose === 'remortgage'
+          ? {
+              purpose: loanPurpose,
+              houseWorth,
+              mortgageBalance,
+              estimatedEquity: remortgageEquity,
+            }
+          : {
+              purpose: loanPurpose,
+              buyerType,
+              propertyValue,
+              deposit,
+              borrowingNeed,
+            },
+      applicant: {
+        householdIncome,
+        employmentType,
+        dateOfBirth,
+      },
+      advisor: {
+        wantsToSpeak: true,
+      },
+    }
+
+    saveApplicationToSession(application)
+    setView('availability')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function handleConfirmAppointment() {
+    const storedApplication = sessionStorage.getItem(SESSION_STORAGE_KEY)
+
+    if (!storedApplication) {
+      return
+    }
+
+    const application = JSON.parse(storedApplication) as MortgageApplication
+    saveApplicationToSession({
+      ...application,
+      advisor: {
+        ...application.advisor,
+        selectedSlot,
+      },
+    })
+  }
 
   return (
     <main className="site-shell">
       <header className="topbar" aria-label="Main navigation">
-        <a className="brand" href="#top" aria-label="Find Your Mortgage home">
-          <span className="brand-mark" aria-hidden="true">F</span>
-          <span>Find Your Mortgage</span>
+        <a className="brand" href="#top" aria-label="1989 Mortgages home">
+          <span className="brand-mark" aria-hidden="true">89</span>
+          <span>1989 Mortgages</span>
         </a>
-        <nav className="nav-links" aria-label="Primary">
-          <a href="#compare">Compare</a>
-          <a href="#process">How it works</a>
-          <a href="#advice">Advice</a>
-        </nav>
-        <a className="phone-link" href="tel:+442045551234">020 4555 1234</a>
+        <a className="phone-link" href="tel:+447774441989">0777 444 1989</a>
       </header>
 
-      <section className="hero-section" id="top">
-        <div className="hero-copy">
-          <p className="eyebrow">Mortgage advice without the maze</p>
-          <h1>Find a mortgage that fits your next move.</h1>
-          <p className="hero-text">
-            Compare leading UK lenders, check what you could borrow, and get
-            matched with an adviser who can keep the application moving.
-          </p>
-          <div className="hero-actions" aria-label="Key actions">
-            <a className="primary-action" href="#quote">Start my quote</a>
-            <a className="secondary-action" href="#compare">View rates</a>
-          </div>
-          <ul className="trust-row" aria-label="Trust signals">
-            <li>No obligation</li>
-            <li>Whole-of-market search</li>
-            <li>FCA authorised advisers</li>
-          </ul>
-        </div>
-
-        <section className="quote-panel" id="quote" aria-labelledby="quote-title">
-          <div className="quote-heading">
-            <p>Step 1 of 4</p>
-            <h2 id="quote-title">What are you looking to do?</h2>
-          </div>
-
-          <div className="segmented-control" role="group" aria-label="Mortgage purpose">
+      {view === 'intro' && (
+        <section className="intro-screen" id="top">
+          <div className="intro-copy">
+            <p className="eyebrow">Mortgage advice without the maze</p>
+            <h1>Let’s find the right mortgage route for you.</h1>
+            <p className="hero-text">
+              Answer a few quick questions and we’ll get you to the right next
+              step, whether you’re buying, moving, or remortgaging.
+            </p>
             <button
-              className={purpose === 'buy' ? 'is-active' : ''}
+              className="primary-action"
               type="button"
-              onClick={() => setPurpose('buy')}
+              onClick={() => setView('questionnaire')}
             >
-              Buy a home
+              Fill in questionnaire
             </button>
-            <button
-              className={purpose === 'remortgage' ? 'is-active' : ''}
-              type="button"
-              onClick={() => setPurpose('remortgage')}
-            >
-              Remortgage
-            </button>
+            <ul className="trust-row" aria-label="Trust signals">
+              <li>No obligation</li>
+              <li>Whole-of-market search</li>
+              <li>FCA authorised advisers</li>
+            </ul>
           </div>
-
-          <label className="field">
-            <span>Property value</span>
-            <input
-              type="number"
-              min="50000"
-              step="5000"
-              value={propertyValue}
-              onChange={(event) => setPropertyValue(Number(event.target.value))}
-            />
-          </label>
-
-          <label className="field">
-            <span>{purpose === 'buy' ? 'Deposit' : 'Current equity'}</span>
-            <input
-              type="number"
-              min="0"
-              step="5000"
-              value={deposit}
-              onChange={(event) => setDeposit(Number(event.target.value))}
-            />
-          </label>
-
-          <div className="quote-summary" aria-live="polite">
-            <span>Estimated loan</span>
-            <strong>{loanAmount.toLocaleString('en-GB')} GBP</strong>
-            <small>{ltv}% loan to value</small>
-          </div>
-
-          <a className="quote-submit" href="#compare">See my options</a>
-
-          <ol className="progress-list" aria-label="Quote progress">
-            {steps.map((step, index) => (
-              <li className={index === 0 ? 'is-current' : ''} key={step}>
-                {step}
-              </li>
-            ))}
-          </ol>
+          <aside className="intro-card" aria-label="Questionnaire preview">
+            <img src={heroImg} alt="" aria-hidden="true" />
+            <strong>7 questions</strong>
+            <span>Property, borrowing, income, employment, and advisor booking.</span>
+          </aside>
         </section>
-      </section>
+      )}
 
-      <section className="stats-band" aria-label="Service highlights">
-        <div>
-          <strong>90+</strong>
-          <span>lenders searched</span>
-        </div>
-        <div>
-          <strong>15 min</strong>
-          <span>first eligibility check</span>
-        </div>
-        <div>
-          <strong>4.9/5</strong>
-          <span>customer adviser rating</span>
-        </div>
-      </section>
-
-      <section className="comparison-section" id="compare">
-        <div className="section-heading">
-          <p className="eyebrow">Live-style comparison</p>
-          <h2>Clear options before you apply.</h2>
-        </div>
-        <div className="rate-table" role="table" aria-label="Example mortgage rates">
-          <div className="rate-row rate-head" role="row">
-            <span role="columnheader">Lender</span>
-            <span role="columnheader">Initial rate</span>
-            <span role="columnheader">Fee</span>
-            <span role="columnheader">Monthly</span>
+      {view === 'questionnaire' && (
+        <section className="questionnaire-screen" id="top">
+          <div className="section-heading">
+            <p className="eyebrow">Quick questionnaire</p>
+            <h1>Tell us where you are now.</h1>
+            <p>
+              Your answers help shape the mortgage conversation before you speak
+              to an advisor.
+            </p>
           </div>
-          {rates.map((rate) => (
-            <div className="rate-row" role="row" key={rate.lender}>
-              <span role="cell">{rate.lender}</span>
-              <strong role="cell">{rate.rate}</strong>
-              <span role="cell">{rate.fee}</span>
-              <span role="cell">{rate.monthly}</span>
+
+          <form className="questionnaire-panel" onSubmit={handleSubmit}>
+            <fieldset className="question-block">
+              <legend>Are you a buyer or re-mortgaging?</legend>
+              <div className="option-grid two-column" role="group" aria-label="Mortgage type">
+                <button
+                  className={loanPurpose === 'buyer' ? 'option-card is-active' : 'option-card'}
+                  type="button"
+                  onClick={() => setLoanPurpose('buyer')}
+                >
+                  Buyer
+                </button>
+                <button
+                  className={loanPurpose === 'remortgage' ? 'option-card is-active' : 'option-card'}
+                  type="button"
+                  onClick={() => setLoanPurpose('remortgage')}
+                >
+                  Re-mortgaging
+                </button>
+              </div>
+            </fieldset>
+
+            {loanPurpose === 'remortgage' ? (
+              <>
+                <label className="field question-block">
+                  <span>How much is your house worth?</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="5000"
+                    value={houseWorth}
+                    onChange={(event) => setHouseWorth(Number(event.target.value))}
+                  />
+                </label>
+
+                <label className="field question-block">
+                  <span>What is your current mortgage balance?</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="5000"
+                    value={mortgageBalance}
+                    onChange={(event) => setMortgageBalance(Number(event.target.value))}
+                  />
+                </label>
+              </>
+            ) : (
+              <>
+                <fieldset className="field question-block">
+                  <legend>
+                    Are you a first time buyer, home mover, or buying an
+                    additional property?
+                  </legend>
+                  <div className="option-grid three-column" role="group" aria-label="Buyer type">
+                    <button
+                      className={
+                        buyerType === 'first-time-buyer' ? 'option-card is-active' : 'option-card'
+                      }
+                      type="button"
+                      onClick={() => setBuyerType('first-time-buyer')}
+                    >
+                      First time buyer
+                    </button>
+                    <button
+                      className={buyerType === 'home-mover' ? 'option-card is-active' : 'option-card'}
+                      type="button"
+                      onClick={() => setBuyerType('home-mover')}
+                    >
+                      Home mover
+                    </button>
+                    <button
+                      className={
+                        buyerType === 'additional-property' ? 'option-card is-active' : 'option-card'
+                      }
+                      type="button"
+                      onClick={() => setBuyerType('additional-property')}
+                    >
+                      Additional property
+                    </button>
+                  </div>
+                </fieldset>
+
+                <fieldset className="question-block calculator-block">
+                  <legend>How much do you think you need to borrow?</legend>
+                  <div className="calculator-grid">
+                    <label className="field">
+                      <span>Property price</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="5000"
+                        value={propertyValue}
+                        onChange={(event) => setPropertyValue(Number(event.target.value))}
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Deposit</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="5000"
+                        value={deposit}
+                        onChange={(event) => setDeposit(Number(event.target.value))}
+                      />
+                    </label>
+                  </div>
+                </fieldset>
+              </>
+            )}
+
+            <div className="quote-summary" aria-live="polite">
+              <span>{borrowingSummary.label}</span>
+              <strong>{borrowingSummary.value.toLocaleString('en-GB')} GBP</strong>
+              <small>{borrowingSummary.detail}</small>
             </div>
-          ))}
-        </div>
-      </section>
 
-      <section className="process-section" id="process">
-        <div className="section-heading">
-          <p className="eyebrow">How it works</p>
-          <h2>A guided path from search to offer.</h2>
-        </div>
-        <div className="process-grid">
-          <article>
-            <span className="step-mark">01</span>
-            <h3>Share the basics</h3>
-            <p>Tell us about the property, deposit, income, and timing.</p>
-          </article>
-          <article>
-            <span className="step-mark">02</span>
-            <h3>Compare your match</h3>
-            <p>See suitable lenders and products before a full application.</p>
-          </article>
-          <article>
-            <span className="step-mark">03</span>
-            <h3>Apply with support</h3>
-            <p>An adviser helps package the case and manage next steps.</p>
-          </article>
-        </div>
-      </section>
+            <label className="field question-block">
+              <span>What’s your total household income?</span>
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                value={householdIncome}
+                onChange={(event) => setHouseholdIncome(Number(event.target.value))}
+              />
+            </label>
 
-      <section className="advice-strip" id="advice">
-        <img src={heroImg} alt="" aria-hidden="true" />
-        <div>
-          <p className="eyebrow">Protection included</p>
-          <h2>Mortgage, life cover, and income protection in one conversation.</h2>
-          <p>
-            Keep the practical bits together so you can make a confident choice
-            without repeating the same details across separate forms.
-          </p>
-        </div>
-        <a className="secondary-action" href="#quote">Check eligibility</a>
-      </section>
+            <fieldset className="question-block">
+              <legend>Are you employed or self employed?</legend>
+              <div className="option-grid two-column" role="group" aria-label="Employment type">
+                <button
+                  className={employmentType === 'employed' ? 'option-card is-active' : 'option-card'}
+                  type="button"
+                  onClick={() => setEmploymentType('employed')}
+                >
+                  Employed
+                </button>
+                <button
+                  className={
+                    employmentType === 'self-employed' ? 'option-card is-active' : 'option-card'
+                  }
+                  type="button"
+                  onClick={() => setEmploymentType('self-employed')}
+                >
+                  Self employed
+                </button>
+              </div>
+            </fieldset>
+
+            <label className="field question-block">
+              <span>What is your date of birth?</span>
+              <input
+                type="date"
+                value={dateOfBirth}
+                onChange={(event) => setDateOfBirth(event.target.value)}
+                required
+              />
+            </label>
+
+            <section className="advisor-question" aria-labelledby="advisor-question-title">
+              <div>
+                <p className="eyebrow">Final step</p>
+                <h2 id="advisor-question-title">
+                  Would you like to speak to a mortgage advisor?
+                </h2>
+                <p>Click yes to select an available time.</p>
+              </div>
+              <div className="consent-actions">
+                <label className="consent-box">
+                  <input
+                    type="checkbox"
+                    checked={hasAcceptedDataTerms}
+                    onChange={(event) => setHasAcceptedDataTerms(event.target.checked)}
+                    required
+                  />
+                  <span>
+                    I agree that 1989 Mortgages can store the details I have
+                    provided and use them to contact me about mortgage advice.
+                    I understand this is currently stored for this browser
+                    session and may later be submitted securely to 1989
+                    Mortgages systems.
+                  </span>
+                </label>
+                <button
+                  className="quote-submit"
+                  type="submit"
+                  disabled={!hasAcceptedDataTerms}
+                >
+                  Yes
+                </button>
+              </div>
+            </section>
+          </form>
+        </section>
+      )}
+
+      {view === 'availability' && (
+        <section className="availability-screen" id="top">
+          <div className="section-heading">
+            <p className="eyebrow">Choose a time</p>
+            <h1>Select an available advisor slot.</h1>
+            <p>
+              Pick a time that works and an advisor will be ready to talk
+              through your answers.
+            </p>
+          </div>
+
+          <section className="availability-panel" aria-label="Availability selector">
+            {availabilitySlots.map((slot) => (
+              <article className="slot-day" key={slot.date}>
+                <div>
+                  <strong>{slot.day}</strong>
+                  <span>{slot.date}</span>
+                </div>
+                <div className="time-grid">
+                  {slot.times.map((time) => {
+                    const slotValue = `${slot.date} ${time}`
+
+                    return (
+                      <button
+                        className={selectedSlot === slotValue ? 'time-button is-active' : 'time-button'}
+                        type="button"
+                        key={slotValue}
+                        onClick={() => setSelectedSlot(slotValue)}
+                      >
+                        {time}
+                      </button>
+                    )
+                  })}
+                </div>
+              </article>
+            ))}
+
+            <div className="booking-summary">
+              <span>Selected appointment</span>
+              <strong>{selectedSlot}</strong>
+              <button
+                className="primary-action"
+                type="button"
+                onClick={handleConfirmAppointment}
+              >
+                Confirm appointment
+              </button>
+            </div>
+          </section>
+        </section>
+      )}
     </main>
   )
 }
