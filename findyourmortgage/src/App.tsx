@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import heroImg from './assets/hero.png'
 import './App.css'
@@ -39,12 +39,13 @@ type MortgageApplication = {
 
 const SESSION_STORAGE_KEY = '1989-mortgages-application'
 const CONSENT_VERSION = 'data-storage-consent-v1'
+const API_BASE_URL = 'http://localhost:3001'
 
-const availabilitySlots = [
-  { day: 'Today', date: '14 May', times: ['15:00', '16:30', '18:00'] },
-  { day: 'Tomorrow', date: '15 May', times: ['09:30', '12:00', '17:30'] },
-  { day: 'Saturday', date: '16 May', times: ['10:00', '11:30', '13:00'] },
-]
+type AvailabilitySlot = {
+  id: string
+  label: string
+  status: 'available' | 'booked'
+}
 
 function createApplicationId() {
   if (crypto.randomUUID) {
@@ -70,7 +71,9 @@ function App() {
   const [employmentType, setEmploymentType] = useState<EmploymentType>('employed')
   const [dateOfBirth, setDateOfBirth] = useState('')
   const [hasAcceptedDataTerms, setHasAcceptedDataTerms] = useState(false)
-  const [selectedSlot, setSelectedSlot] = useState('15 May 12:00')
+  const [selectedSlot, setSelectedSlot] = useState('')
+  const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([])
+  const [feedbackMessage, setFeedbackMessage] = useState('')
 
   const borrowingNeed = Math.max(propertyValue - deposit, 0)
   const remortgageEquity = Math.max(houseWorth - mortgageBalance, 0)
@@ -91,12 +94,25 @@ function App() {
     }
   }, [borrowingNeed, loanPurpose, remortgageEquity])
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/availability`)
+      .then((response) => response.json())
+      .then((data: AvailabilitySlot[]) => {
+        setAvailabilitySlots(data)
+      })
+      .catch(() => {
+        setFeedbackMessage('We could not load the latest availability right now.')
+      })
+  }, [])
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     if (!hasAcceptedDataTerms) {
       return
     }
+
+    setFeedbackMessage('')
 
     const acceptedAt = new Date().toISOString()
     const application: MortgageApplication = {
@@ -132,26 +148,63 @@ function App() {
       },
     }
 
-    saveApplicationToSession(application)
-    setView('availability')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    try {
+      const response = await fetch(`${API_BASE_URL}/applications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(application),
+      })
+
+      if (!response.ok) {
+        throw new Error('Unable to save application')
+      }
+
+      const savedApplication = await response.json()
+      saveApplicationToSession({ ...application, id: savedApplication.id })
+      setView('availability')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch (error) {
+      console.error(error)
+      setFeedbackMessage('We could not save your application right now. Please try again.')
+    }
   }
 
-  function handleConfirmAppointment() {
+  async function handleConfirmAppointment() {
     const storedApplication = sessionStorage.getItem(SESSION_STORAGE_KEY)
 
-    if (!storedApplication) {
+    if (!storedApplication || !selectedSlot) {
       return
     }
 
     const application = JSON.parse(storedApplication) as MortgageApplication
-    saveApplicationToSession({
-      ...application,
-      advisor: {
-        ...application.advisor,
-        selectedSlot,
-      },
-    })
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/bookings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          applicationId: application.id,
+          slotId: selectedSlot,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Unable to book appointment')
+      }
+
+      const result = await response.json()
+      saveApplicationToSession({
+        ...application,
+        advisor: {
+          ...application.advisor,
+          selectedSlot,
+        },
+      })
+      setFeedbackMessage(`Appointment confirmed for ${result.booking.slotId}.`)
+    } catch (error) {
+      console.error(error)
+      setFeedbackMessage('That appointment is no longer available. Please choose another slot.')
+    }
   }
 
   return (
@@ -413,41 +466,37 @@ function App() {
 
           <section className="availability-panel" aria-label="Availability selector">
             {availabilitySlots.map((slot) => (
-              <article className="slot-day" key={slot.date}>
+              <article className="slot-day" key={slot.id}>
                 <div>
-                  <strong>{slot.day}</strong>
-                  <span>{slot.date}</span>
+                  <strong>{slot.label}</strong>
+                  <span>{slot.status === 'available' ? 'Available' : 'Booked'}</span>
                 </div>
                 <div className="time-grid">
-                  {slot.times.map((time) => {
-                    const slotValue = `${slot.date} ${time}`
-
-                    return (
-                      <button
-                        className={selectedSlot === slotValue ? 'time-button is-active' : 'time-button'}
-                        type="button"
-                        key={slotValue}
-                        onClick={() => setSelectedSlot(slotValue)}
-                      >
-                        {time}
-                      </button>
-                    )
-                  })}
+                  <button
+                    className={selectedSlot === slot.id ? 'time-button is-active' : 'time-button'}
+                    type="button"
+                    onClick={() => setSelectedSlot(slot.id)}
+                    disabled={slot.status === 'booked'}
+                  >
+                    {slot.status === 'available' ? 'Select slot' : 'Booked'}
+                  </button>
                 </div>
               </article>
             ))}
 
             <div className="booking-summary">
               <span>Selected appointment</span>
-              <strong>{selectedSlot}</strong>
+              <strong>{selectedSlot || 'Choose a slot'}</strong>
               <button
                 className="primary-action"
                 type="button"
                 onClick={handleConfirmAppointment}
+                disabled={!selectedSlot}
               >
                 Confirm appointment
               </button>
             </div>
+            {feedbackMessage && <p className="feedback-message">{feedbackMessage}</p>}
           </section>
         </section>
       )}
