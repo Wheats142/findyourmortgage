@@ -21,9 +21,20 @@
 
 .brand {
   gap: 10px;
+  border: 0;
+  padding: 0;
   color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
   font-weight: 800;
   text-decoration: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.brand:hover {
+  opacity: 0.9;
 }
 
 .brand-mark {
@@ -120,58 +131,118 @@
 }
 
 .trust-row {
+  display: flex;
   flex-wrap: wrap;
   gap: 10px;
   margin: 34px 0 0;
   padding: 0;
-  list-style: none;
 }
 
-.trust-row li {
-  border: 1px solid var(--line);
+.trust-row span {
+  border: 1px solid rgba(25, 121, 80, 0.16);
   border-radius: 999px;
   padding: 8px 12px;
   color: var(--muted);
   font-size: 0.9rem;
   font-weight: 700;
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .intro-card,
 .questionnaire-panel,
 .availability-panel {
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 1px solid rgba(22, 32, 53, 0.06);
+  border-radius: 20px;
   background: #ffffff;
-  box-shadow: 0 28px 60px rgba(30, 48, 76, 0.13);
+  box-shadow: 0 24px 60px rgba(30, 48, 76, 0.09);
 }
 
 .intro-card {
   display: grid;
   justify-items: start;
-  gap: 12px;
+  gap: 14px;
   padding: 28px;
 }
 
-.intro-card img {
-  width: 118px;
-  height: auto;
-  margin-bottom: 18px;
+.intro-card-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 7px 11px;
+  color: var(--green);
+  background: #eef8f1;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .intro-card strong {
   color: var(--ink);
-  font-size: 2rem;
-  line-height: 1;
+  font-size: 1.8rem;
+  line-height: 1.1;
 }
 
-.intro-card span {
+.intro-card-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
   color: var(--body);
   font-weight: 700;
 }
 
+.intro-card-list li {
+  position: relative;
+  padding-left: 16px;
+}
+
+.intro-card-list li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--green);
+}
+
 .section-heading {
   margin-bottom: 28px;
+}
+
+.section-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.section-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: var(--green);
+  background: #eef8f1;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.section-badge--muted {
+  color: var(--muted);
+  background: #f5f7f8;
+}
+
+.text-link {
+  margin-bottom: 12px;
+  border: 0;
+  padding: 0;
+  color: var(--green);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
 }
 
 .section-heading .eyebrow {
@@ -180,43 +251,48 @@
 
 .questionnaire-panel,
 .availability-panel {
-  padding: 28px;
+  padding: 32px;
 }
 
 .question-block {
   margin: 0;
   border: 0;
   border-top: 1px solid var(--line);
-  padding: 24px 0 0;
+  padding: 32px 0 0;
 }
 
 .questionnaire-panel > .question-block:first-child {
   border-top: 0;
-  padding-top: 0;
+  padding-top: 8px;
 }
 
 legend,
 .field > span {
   display: block;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   color: var(--ink);
   font-size: 1.15rem;
   font-weight: 900;
 }
 
 .option-grid {
+  display: grid;
   gap: 12px;
+  margin-top: 4px;
 }
 
-.two-column .option-card {
-  flex: 1 1 0;
+.two-column {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.three-column .option-card {
-  flex: 1 1 0;
+.three-column {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .option-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: 58px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -224,6 +300,16 @@ legend,
   color: var(--ink);
   background: var(--soft);
   font-weight: 900;
+  line-height: 1.2;
+  text-align: center;
+  transition: box-shadow 180ms ease, border-color 180ms ease, background-color 180ms ease;
+}
+
+.option-card:hover,
+.time-button:hover,
+.primary-action:hover,
+.quote-submit:hover {
+  box-shadow: 0 10px 24px rgba(30, 48, 76, 0.12);
 }
 
 .option-card.is-active,
@@ -384,6 +470,7 @@ legend,
   color: var(--ink);
   background: #ffffff;
   font-weight: 900;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
 .booking-summary {
@@ -395,6 +482,13 @@ legend,
   border-radius: 8px;
   padding: 20px;
   background: #eef8f1;
+}
+
+.booking-summary small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-weight: 700;
 }
 
 .feedback-message {

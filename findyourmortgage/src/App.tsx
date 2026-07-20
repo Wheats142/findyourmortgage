@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import heroImg from './assets/hero.png'
 import './App.css'
 
 type LoanPurpose = 'buyer' | 'remortgage'
@@ -93,6 +92,9 @@ function App() {
       detail: 'Based on the property price less your deposit.',
     }
   }, [borrowingNeed, loanPurpose, remortgageEquity])
+
+  const selectedSlotLabel = availabilitySlots.find((slot) => slot.id === selectedSlot)?.label ?? 'Choose a slot'
+  const stepLabel = view === 'questionnaire' ? 'Step 1 of 2' : 'Step 2 of 2'
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/availability`)
@@ -210,10 +212,10 @@ function App() {
   return (
     <main className="site-shell">
       <header className="topbar" aria-label="Main navigation">
-        <a className="brand" href="#top" aria-label="1989 Mortgages home">
+        <button className="brand" type="button" onClick={() => setView('intro')} aria-label="1989 Mortgages home">
           <span className="brand-mark" aria-hidden="true">89</span>
           <span>1989 Mortgages</span>
-        </a>
+        </button>
         <a className="phone-link" href="tel:+447774441989">0777 444 1989</a>
       </header>
 
@@ -221,10 +223,10 @@ function App() {
         <section className="intro-screen" id="top">
           <div className="intro-copy">
             <p className="eyebrow">Mortgage advice without the maze</p>
-            <h1>Let’s find the right mortgage route for you.</h1>
+            <h1>Find the right mortgage route with clarity and confidence.</h1>
             <p className="hero-text">
-              Answer a few quick questions and we’ll get you to the right next
-              step, whether you’re buying, moving, or remortgaging.
+              Start with a short guided questionnaire and we’ll help you move
+              from options to advice without the usual confusion.
             </p>
             <button
               className="primary-action"
@@ -233,16 +235,20 @@ function App() {
             >
               Fill in questionnaire
             </button>
-            <ul className="trust-row" aria-label="Trust signals">
-              <li>No obligation</li>
-              <li>Whole-of-market search</li>
-              <li>FCA authorised advisers</li>
-            </ul>
+            <div className="trust-row" aria-label="Trust signals">
+              <span>No obligation</span>
+              <span>Whole-of-market search</span>
+              <span>FCA authorised advisers</span>
+            </div>
           </div>
           <aside className="intro-card" aria-label="Questionnaire preview">
-            <img src={heroImg} alt="" aria-hidden="true" />
-            <strong>7 questions</strong>
-            <span>Property, borrowing, income, employment, and advisor booking.</span>
+            <div className="intro-card-badge">Trusted, personal mortgage support</div>
+            <strong>What happens next</strong>
+            <ul className="intro-card-list">
+              <li>7 short questions tailored to your move</li>
+              <li>Clear borrowing insight before you speak to an adviser</li>
+              <li>Book a call when the time feels right</li>
+            </ul>
           </aside>
         </section>
       )}
@@ -250,6 +256,13 @@ function App() {
       {view === 'questionnaire' && (
         <section className="questionnaire-screen" id="top">
           <div className="section-heading">
+            <div className="section-meta" aria-label="Progress">
+              <span className="section-badge">{stepLabel}</span>
+              <span className="section-badge section-badge--muted">3 minutes</span>
+            </div>
+            <button className="text-link" type="button" onClick={() => setView('intro')}>
+              ← Back to home
+            </button>
             <p className="eyebrow">Quick questionnaire</p>
             <h1>Tell us where you are now.</h1>
             <p>
@@ -456,6 +469,13 @@ function App() {
       {view === 'availability' && (
         <section className="availability-screen" id="top">
           <div className="section-heading">
+            <div className="section-meta" aria-label="Progress">
+              <span className="section-badge">{stepLabel}</span>
+              <span className="section-badge section-badge--muted">One step left</span>
+            </div>
+            <button className="text-link" type="button" onClick={() => setView('intro')}>
+              ← Back to home
+            </button>
             <p className="eyebrow">Choose a time</p>
             <h1>Select an available advisor slot.</h1>
             <p>
@@ -485,8 +505,11 @@ function App() {
             ))}
 
             <div className="booking-summary">
-              <span>Selected appointment</span>
-              <strong>{selectedSlot || 'Choose a slot'}</strong>
+              <div>
+                <span>Selected appointment</span>
+                <strong>{selectedSlotLabel}</strong>
+                <small>{selectedSlot ? 'We will confirm this booking once you press continue.' : 'Choose a slot to continue.'}</small>
+              </div>
               <button
                 className="primary-action"
                 type="button"
