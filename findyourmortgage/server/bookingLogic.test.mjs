@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createInitialAvailability, bookSlot } from './bookingLogic.js'
+import { createInitialAvailability, bookSlot, resetAvailability, removeBooking } from './bookingLogic.js'
 
 test('creates availability with all slots open', () => {
   const availability = createInitialAvailability([
@@ -24,4 +24,20 @@ test('books an available slot and refuses a second booking', () => {
   assert.equal(firstResult.success, true)
   assert.equal(secondResult.success, false)
   assert.equal(availability[0].status, 'booked')
+})
+
+test('resets availability and removes a booking by id', () => {
+  const availability = createInitialAvailability([
+    { id: 'slot-1', label: 'Today 15:00' },
+    { id: 'slot-2', label: 'Tomorrow 10:00' },
+  ])
+  const bookings = [{ id: 'booking-1', applicationId: 'app-1', slotId: 'slot-1', bookedAt: 'now' }]
+
+  const resetResult = resetAvailability(availability)
+  const removeResult = removeBooking(bookings, 'booking-1')
+
+  assert.equal(resetResult.success, true)
+  assert.equal(availability.every((slot) => slot.status === 'available'), true)
+  assert.equal(removeResult.success, true)
+  assert.equal(bookings.length, 0)
 })

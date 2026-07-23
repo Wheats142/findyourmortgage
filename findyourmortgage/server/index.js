@@ -1,6 +1,6 @@
 import express from 'express'
 import cors from 'cors'
-import { createInitialAvailability, bookSlot } from './bookingLogic.js'
+import { createInitialAvailability, bookSlot, resetAvailability, removeBooking } from './bookingLogic.js'
 
 const app = express()
 const port = process.env.PORT || 3001
@@ -64,6 +64,21 @@ app.post('/bookings', (req, res) => {
   bookings.push(booking)
 
   res.status(201).json({ booking, availability })
+})
+
+app.post('/admin/reset-availability', (_req, res) => {
+  const result = resetAvailability(availability)
+  res.json(result)
+})
+
+app.delete('/admin/bookings/:bookingId', (req, res) => {
+  const result = removeBooking(bookings, req.params.bookingId)
+
+  if (!result.success) {
+    return res.status(404).json(result)
+  }
+
+  res.json(result)
 })
 
 app.listen(port, () => {

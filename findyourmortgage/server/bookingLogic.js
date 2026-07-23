@@ -20,3 +20,22 @@ export function bookSlot(availability, slotId) {
   slot.status = 'booked'
   return { success: true, slot }
 }
+
+export function resetAvailability(availability) {
+  availability.forEach((slot) => {
+    slot.status = 'available'
+  })
+
+  return { success: true, availability }
+}
+
+export function removeBooking(bookings, bookingId) {
+  const index = bookings.findIndex((booking) => booking.id === bookingId)
+
+  if (index === -1) {
+    return { success: false, message: 'Booking not found.' }
+  }
+
+  bookings.splice(index, 1)
+  return { success: true, bookings }
+}
