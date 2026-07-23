@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
+import AdminPortal from './AdminPortal'
 import './App.css'
 
 type LoanPurpose = 'buyer' | 'remortgage'
@@ -106,6 +107,12 @@ function App() {
         setFeedbackMessage('We could not load the latest availability right now.')
       })
   }, [])
+
+  const normalizedPath = window.location.pathname.replace(/\/$/, '')
+
+  if (normalizedPath.endsWith('/admin')) {
+    return <AdminPortal />
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()

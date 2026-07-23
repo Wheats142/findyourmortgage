@@ -1,6 +1,14 @@
 import express from 'express'
 import cors from 'cors'
-import { createInitialAvailability, bookSlot, resetAvailability, removeBooking } from './bookingLogic.js'
+import {
+  createInitialAvailability,
+  bookSlot,
+  resetAvailability,
+  addAvailability,
+  removeAvailability,
+  removeBooking,
+  editBooking,
+} from './bookingLogic.js'
 
 const app = express()
 const port = process.env.PORT || 3001
@@ -71,11 +79,41 @@ app.post('/admin/reset-availability', (_req, res) => {
   res.json(result)
 })
 
+app.post('/admin/availability', (req, res) => {
+  const result = addAvailability(availability, req.body.label)
+
+  if (!result.success) {
+    return res.status(400).json(result)
+  }
+
+  res.status(201).json({ ...result, availability })
+})
+
+app.delete('/admin/availability/:slotId', (req, res) => {
+  const result = removeAvailability(availability, req.params.slotId)
+
+  if (!result.success) {
+    return res.status(409).json(result)
+  }
+
+  res.json(result)
+})
+
 app.delete('/admin/bookings/:bookingId', (req, res) => {
-  const result = removeBooking(bookings, req.params.bookingId)
+  const result = removeBooking(bookings, req.params.bookingId, availability)
 
   if (!result.success) {
     return res.status(404).json(result)
+  }
+
+  res.json(result)
+})
+
+app.patch('/admin/bookings/:bookingId', (req, res) => {
+  const result = editBooking(bookings, req.params.bookingId, req.body.slotId, availability)
+
+  if (!result.success) {
+    return res.status(409).json(result)
   }
 
   res.json(result)
